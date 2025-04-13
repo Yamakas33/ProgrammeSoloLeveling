@@ -1,0 +1,232 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Quest - Sung Jin-Woo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Orbitron', sans-serif;
+      background: #000;
+      overflow-x: hidden;
+    }
+
+    .animated-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200%;
+      height: 200%;
+      background: repeating-linear-gradient(45deg, #00f0ff10, #00f0ff10 1px, transparent 1px, transparent 20px);
+      animation: moveBg 20s linear infinite;
+      z-index: -1;
+    }
+
+    @keyframes moveBg {
+      from { transform: translate(0, 0); }
+      to { transform: translate(-50px, -50px); }
+    }
+
+    .panel {
+      max-width: 400px;
+      margin: 5vh auto;
+      padding: 20px;
+      background: rgba(0,0,0,0.85);
+      border: 3px solid #00f0ff;
+      border-radius: 15px;
+      color: #fff;
+      box-shadow: 0 0 20px #00f0ff;
+    }
+
+    .goal {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 10px 0;
+    }
+
+    .goal label {
+      flex-grow: 1;
+      margin-left: 10px;
+    }
+
+    input[type="number"] {
+      width: 60px;
+      background: #111;
+      color: #00f0ff;
+      border: 1px solid #00f0ff;
+      border-radius: 5px;
+      text-align: center;
+    }
+
+    .timer, .level-display {
+      text-align: center;
+      margin-top: 15px;
+      color: #00f0ff;
+    }
+
+    .progress-container {
+      margin-top: 20px;
+      background: #222;
+      border: 1px solid #00f0ff;
+      height: 20px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(to right, #00f0ff, #005577);
+      width: 0%;
+      transition: width 0.3s ease-in-out;
+    }
+
+    .badges {
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .badges i {
+      font-size: 20px;
+      margin: 0 5px;
+      color: gold;
+    }
+
+    @media (max-width: 500px) {
+      .panel {
+        margin: 2vh 10px;
+      }
+    }
+
+    button {
+      background-color: #00f0ff;
+      color: #000;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 10px;
+      margin: 10px auto;
+      display: block;
+      cursor: pointer;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="animated-bg"></div>
+
+  <div class="panel">
+    <h2>⚔️ DAILY QUEST</h2>
+    <div class="goal">
+      <input type="checkbox" id="pushups">
+      <label for="pushups">Push-ups</label>
+      <input type="number" id="pushupsCount" max="100" value="0"> /50
+    </div>
+    <div class="goal">
+      <input type="checkbox" id="situps">
+      <label for="situps">Sit-ups</label>
+      <input type="number" id="situpsCount" max="100" value="0"> /50
+    </div>
+    <div class="goal">
+      <input type="checkbox" id="squats">
+      <label for="squats">Squats</label>
+      <input type="number" id="squatsCount" max="100" value="0"> /50
+    </div>
+    <div class="goal">
+      <input type="checkbox" id="run">
+      <label for="run">Run (km)</label>
+      <input type="number" id="runCount" max="10" step="0.1" value="0"> /3.5
+    </div>
+
+    <div class="progress-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div class="level-display" id="levelDisplay">🔥 Niveau: 1 (XP: 0)</div>
+    <div class="badges" id="badges"></div>
+
+    <div class="timer" id="countdown">⏳ Temps restant: 00:00:00</div>
+
+    <button onclick="resetQuest()">Réinitialiser</button>
+  </div>
+
+  <audio id="checkSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-notification-alert-988.mp3" preload="auto"></audio>
+
+  <script>
+    const questStart = localStorage.getItem("questStart") || Date.now();
+    localStorage.setItem("questStart", questStart);
+    const duration = 24 * 60 * 60 * 1000;
+
+    const xpPerTask = { pushups: 10, situps: 10, squats: 10, run: 20 };
+    const totalXP = 220;
+
+    function updateCountdown() {
+      const remaining = duration - (Date.now() - questStart);
+      if (remaining <= 0) return document.getElementById("countdown").textContent = "⚠️ Temps écoulé !";
+      const h = String(Math.floor(remaining / 3600000)).padStart(2, '0');
+      const m = String(Math.floor(remaining / 60000) % 60).padStart(2, '0');
+      const s = String(Math.floor(remaining / 1000) % 60).padStart(2, '0');
+      document.getElementById("countdown").textContent = `⏳ Temps restant: ${h}:${m}:${s}`;
+    }
+    setInterval(updateCountdown, 1000);
+    updateCountdown();
+
+    function updateProgress() {
+      let xp = 0;
+      const inputs = [
+        { id: "pushupsCount", max: 60, key: "pushups" },
+        { id: "situpsCount", max: 60, key: "situps" },
+        { id: "squatsCount", max: 60, key: "squats" },
+        { id: "runCount", max: 7, key: "run" }
+      ];
+
+      inputs.forEach(({ id, max, key }) => {
+        const val = parseFloat(document.getElementById(id).value) || 0;
+        xp += (Math.min(val, max) / max) * xpPerTask[key];
+      });
+
+      const percent = Math.min(100, (xp / totalXP) * 850);
+      document.getElementById("progressBar").style.width = percent + "%";
+
+      const level = Math.floor(xp / 20) + 1;
+      document.getElementById("levelDisplay").textContent = `🔥 Niveau: ${level} (XP: ${Math.floor(xp)})`;
+
+      const badgeCount = Math.floor(xp / 50);
+      const badgeIcons = Array(badgeCount).fill('<i class="fas fa-medal"></i>').join('');
+      document.getElementById("badges").innerHTML = badgeIcons;
+
+      localStorage.setItem("xp", xp);
+    }
+
+    function saveInputs() {
+      ["pushupsCount","situpsCount","squatsCount","runCount"].forEach(id =>
+        localStorage.setItem(id, document.getElementById(id).value));
+    }
+
+    ["pushups","situps","squats","run"].forEach(id => {
+      document.getElementById(id).addEventListener("change", () => {
+        document.getElementById("checkSound").play();
+        updateProgress(); saveInputs();
+      });
+    });
+
+    ["pushupsCount","situpsCount","squatsCount","runCount"].forEach(id => {
+      const el = document.getElementById(id);
+      el.value = localStorage.getItem(id) || 0;
+      el.addEventListener("input", () => {
+        updateProgress(); saveInputs();
+      });
+    });
+
+    function resetQuest() {
+      localStorage.clear();
+      location.reload();
+    }
+
+    updateProgress();
+  </script>
+</body>
+</html>
